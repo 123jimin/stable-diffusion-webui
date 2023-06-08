@@ -95,6 +95,7 @@ def reload_hypernetworks():
 class State:
     skipped = False
     interrupted = False
+    request_id = ""
     job = ""
     job_no = 0
     job_count = 0
@@ -171,6 +172,7 @@ class State:
         obj = {
             "skipped": self.skipped,
             "interrupted": self.interrupted,
+            "request_id": self.request_id,
             "job": self.job,
             "job_count": self.job_count,
             "job_timestamp": self.job_timestamp,
@@ -183,6 +185,7 @@ class State:
 
     def begin(self, job: str = "(unknown)"):
         self.sampling_step = 0
+        self.request_id = ""
         self.job_count = -1
         self.processing_has_refined_job_count = False
         self.job_no = 0
@@ -202,6 +205,8 @@ class State:
     def end(self):
         duration = time.time() - self.time_start
         log.info("Ending job %s (%.2f seconds)", self.job, duration)
+        
+        self.request_id = ""
         self.job = ""
         self.job_count = 0
 
