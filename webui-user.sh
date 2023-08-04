@@ -36,7 +36,6 @@ export COMMANDLINE_ARGS="--api --cors-allow-origins=\"https://chat.openai.com\" 
 
 # Fixed git commits
 #export STABLE_DIFFUSION_COMMIT_HASH=""
-#export TAMING_TRANSFORMERS_COMMIT_HASH=""
 #export CODEFORMER_COMMIT_HASH=""
 #export BLIP_COMMIT_HASH=""
 
