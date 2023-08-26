@@ -10,7 +10,7 @@
 #clone_dir="stable-diffusion-webui"
 
 # Commandline arguments for webui.py, for example: export COMMANDLINE_ARGS="--medvram --opt-split-attention"
-export COMMANDLINE_ARGS="--api --cors-allow-origins=\"https://chat.openai.com\" --xformers --port 9001 --no-gradio-queue --disable-nan-check"
+export COMMANDLINE_ARGS="--api --cors-allow-origins=\"https://chat.openai.com\" --xformers --port 9001 --no-gradio-queue --no-half-vae"
 
 # python3 executable
 #python_cmd="python3"
