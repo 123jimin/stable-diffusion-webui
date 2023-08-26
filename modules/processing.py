@@ -158,6 +158,8 @@ class StableDiffusionProcessing:
     token_merging_ratio_hr = 0
     disable_extra_networks: bool = False
 
+    request_id: str = field(default="", init=False)
+
     scripts_value: scripts.ScriptRunner = field(default=None, init=False)
     script_args_value: list = field(default=None, init=False)
     scripts_setup_complete: bool = field(default=False, init=False)
@@ -712,6 +714,8 @@ def process_images(p: StableDiffusionProcessing) -> Processed:
     stored_opts = {k: opts.data[k] for k in p.override_settings.keys()}
 
     try:
+        shared.state.request_id = p.request_id
+
         # if no checkpoint override or the override checkpoint can't be found, remove override entry and load opts checkpoint
         # and if after running refiner, the refiner model is not unloaded - webui swaps back to main model here, if model over is present it will be reloaded afterwards
         if sd_models.checkpoint_aliases.get(p.override_settings.get('sd_model_checkpoint')) is None:
