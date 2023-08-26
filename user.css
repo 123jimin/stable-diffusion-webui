@@ -1,0 +1,43 @@
+#txt2img_results {
+    order: -1;
+}
+
+#txt2img_controlnet canvas[key="temp"] {
+    border: dashed 2px red;
+}
+
+.extra-network-cards .card {
+    max-width: 31%;
+    width: 9em; height: 12em;
+    font-size: 10px !important;
+}
+
+@media screen and (min-width: 600px) {
+    .extra-network-cards .card {
+        width: 12em; height: 16em;
+    }
+
+    .extra-network-cards .card .actions .name {
+        font-size: 14px !important;
+    }
+}
+
+@media screen and (min-width: 900px) {
+    .extra-network-cards .card {
+        width: 15em; height: 20em;
+    }
+
+    .extra-network-cards .card .actions .name {
+        font-size: 18px !important;
+    }
+}
+
+@media screen and (min-width: 1200px) {
+    .extra-network-cards .card {
+        width: 18em; height: 24em;
+    }
+
+    .extra-network-cards .card .actions .name {
+        font-size: 18px !important;
+    }
+}
