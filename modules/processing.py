@@ -158,7 +158,7 @@ class StableDiffusionProcessing:
     token_merging_ratio_hr = 0
     disable_extra_networks: bool = False
 
-    request_id: str = field(default="", init=False)
+    request_id: str = ""
 
     scripts_value: scripts.ScriptRunner = field(default=None, init=False)
     script_args_value: list = field(default=None, init=False)
