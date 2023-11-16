@@ -8,6 +8,10 @@
     font-size: 10px !important;
 }
 
+#img2img_results, #txt2img_results, #extras_results {
+    position: relative;
+}
+
 @media screen and (min-width: 600px) {
     .extra-network-cards .card {
         width: 12em; height: 16em;
