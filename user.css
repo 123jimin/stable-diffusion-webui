@@ -8,8 +8,9 @@
     font-size: 10px !important;
 }
 
-#img2img_results, #txt2img_results, #extras_results {
+#txt2img_results.mobile {
     position: relative;
+    order: -1;
 }
 
 @media screen and (min-width: 600px) {
