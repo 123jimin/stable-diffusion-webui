@@ -8,6 +8,10 @@
     font-size: 10px !important;
 }
 
+#txt2img_results {
+    order: unset;
+}
+
 #txt2img_results.mobile {
     position: relative;
     order: -1;
