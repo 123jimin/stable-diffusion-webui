@@ -174,3 +174,5 @@ function uiElementInSight(el) {
 
     return isOnScreen;
 }
+
+window.addEventListener('beforeunload', (e) => { e.preventDefault(); });
