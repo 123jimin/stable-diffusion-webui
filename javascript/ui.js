@@ -119,9 +119,18 @@ function create_submit_args(args) {
     return res;
 }
 
+function setSubmitButtonsVisibility(tabname, showInterrupt, showSkip, showInterrupting) {
+    gradioApp().getElementById(tabname + '_interrupt').style.display = showInterrupt ? "block" : "none";
+    gradioApp().getElementById(tabname + '_skip').style.display = showSkip ? "block" : "none";
+    gradioApp().getElementById(tabname + '_interrupting').style.display = showInterrupting ? "block" : "none";
+}
+
 function showSubmitButtons(tabname, show) {
-    gradioApp().getElementById(tabname + '_interrupt').style.display = show ? "none" : "block";
-    gradioApp().getElementById(tabname + '_skip').style.display = show ? "none" : "block";
+    setSubmitButtonsVisibility(tabname, !show, !show, false);
+}
+
+function showSubmitInterruptingPlaceholder(tabname) {
+    setSubmitButtonsVisibility(tabname, false, true, true);
 }
 
 function showRestoreProgressButton(tabname, show) {
@@ -146,6 +155,14 @@ function submit() {
     var res = create_submit_args(arguments);
 
     res[0] = id;
+
+    return res;
+}
+
+function submit_txt2img_upscale() {
+    var res = submit(...arguments);
+
+    res[2] = selected_gallery_index();
 
     return res;
 }
@@ -215,9 +232,33 @@ function restoreProgressImg2img() {
 }
 
 
+/**
+ * Configure the width and height elements on `tabname` to accept
+ * pasting of resolutions in the form of "width x height".
+ */
+function setupResolutionPasting(tabname) {
+    var width = gradioApp().querySelector(`#${tabname}_width input[type=number]`);
+    var height = gradioApp().querySelector(`#${tabname}_height input[type=number]`);
+    for (const el of [width, height]) {
+        el.addEventListener('paste', function(event) {
+            var pasteData = event.clipboardData.getData('text/plain');
+            var parsed = pasteData.match(/^\s*(\d+)\D+(\d+)\s*$/);
+            if (parsed) {
+                width.value = parsed[1];
+                height.value = parsed[2];
+                updateInput(width);
+                updateInput(height);
+                event.preventDefault();
+            }
+        });
+    }
+}
+
 onUiLoaded(function() {
     showRestoreProgressButton('txt2img', localGet("txt2img_task_id"));
     showRestoreProgressButton('img2img', localGet("img2img_task_id"));
+    setupResolutionPasting('txt2img');
+    setupResolutionPasting('img2img');
 });
 
 
@@ -278,8 +319,6 @@ onAfterUiUpdate(function() {
     });
 
     json_elem.parentElement.style.display = "none";
-
-    setupTokenCounters();
 });
 
 onOptionsChanged(function() {
