@@ -17,6 +17,12 @@
     order: -1;
 }
 
+@media screen and (max-width: 800px) {
+    #txt2img_lora_pane .extra-network-pane-content {
+        flex-direction: column;
+    }
+}
+
 @media screen and (min-width: 600px) {
     .extra-network-cards .card {
         width: 12em; height: 16em;
