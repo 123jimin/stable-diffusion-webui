@@ -7,7 +7,7 @@ import shlex
 from pathlib import Path
 
 
-normalized_filepath = lambda filepath: str(Path(filepath).resolve())
+normalized_filepath = lambda filepath: str(Path(filepath).absolute())
 
 commandline_args = os.environ.get('COMMANDLINE_ARGS', "")
 sys.argv += shlex.split(commandline_args)
@@ -32,6 +32,6 @@ models_path = os.path.join(data_path, "models")
 extensions_dir = os.path.join(data_path, "extensions")
 extensions_builtin_dir = os.path.join(script_path, "extensions-builtin")
 config_states_dir = os.path.join(script_path, "config_states")
-default_output_dir = os.path.join(data_path, "output")
+default_output_dir = os.path.join(data_path, "outputs")
 
 roboto_ttf_file = os.path.join(modules_path, 'Roboto-Regular.ttf')

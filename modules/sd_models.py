@@ -1,5 +1,5 @@
 import collections
-import os.path
+import os
 import sys
 import threading
 
@@ -7,7 +7,6 @@ import torch
 import re
 import safetensors.torch
 from omegaconf import OmegaConf, ListConfig
-from os import mkdir
 from urllib import request
 import ldm.modules.midas as midas
 
@@ -15,6 +14,7 @@ from ldm.util import instantiate_from_config
 
 from modules import paths, shared, modelloader, devices, script_callbacks, sd_vae, sd_disable_initialization, errors, hashes, sd_models_config, sd_unet, sd_models_xl, cache, extra_networks, processing, lowvram, sd_hijack, patches
 from modules.timer import Timer
+from modules.shared import opts
 import tomesd
 import numpy as np
 
@@ -150,7 +150,7 @@ def list_models():
     if shared.cmd_opts.no_download_sd_model or cmd_ckpt != shared.sd_model_file or os.path.exists(cmd_ckpt):
         model_url = None
     else:
-        model_url = "https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors"
+        model_url = f"{shared.hf_endpoint}/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors"
 
     model_list = modelloader.load_models(model_path=model_path, model_url=model_url, command_path=shared.cmd_opts.ckpt_dir, ext_filter=[".ckpt", ".safetensors"], download_name="v1-5-pruned-emaonly.safetensors", ext_blacklist=[".vae.ckpt", ".vae.safetensors"])
 
@@ -427,6 +427,8 @@ def load_model_weights(model, checkpoint_info: CheckpointInfo, state_dict, timer
         devices.dtype_unet = torch.float16
         timer.record("apply half()")
 
+    apply_alpha_schedule_override(model)
+
     for module in model.modules():
         if hasattr(module, 'fp16_weight'):
             del module.fp16_weight
@@ -505,7 +507,7 @@ def enable_midas_autodownload():
         path = midas.api.ISL_PATHS[model_type]
         if not os.path.exists(path):
             if not os.path.exists(midas_path):
-                mkdir(midas_path)
+                os.mkdir(midas_path)
 
             print(f"Downloading midas model weights for {model_type} to {path}")
             request.urlretrieve(midas_urls[model_type], path)
@@ -548,6 +550,48 @@ def repair_config(sd_config):
     if hasattr(sd_config.model.params, "noise_aug_config") and hasattr(sd_config.model.params.noise_aug_config.params, "clip_stats_path"):
         karlo_path = os.path.join(paths.models_path, 'karlo')
         sd_config.model.params.noise_aug_config.params.clip_stats_path = sd_config.model.params.noise_aug_config.params.clip_stats_path.replace("checkpoints/karlo_models", karlo_path)
+
+
+def rescale_zero_terminal_snr_abar(alphas_cumprod):
+    alphas_bar_sqrt = alphas_cumprod.sqrt()
+
+    # Store old values.
+    alphas_bar_sqrt_0 = alphas_bar_sqrt[0].clone()
+    alphas_bar_sqrt_T = alphas_bar_sqrt[-1].clone()
+
+    # Shift so the last timestep is zero.
+    alphas_bar_sqrt -= (alphas_bar_sqrt_T)
+
+    # Scale so the first timestep is back to the old value.
+    alphas_bar_sqrt *= alphas_bar_sqrt_0 / (alphas_bar_sqrt_0 - alphas_bar_sqrt_T)
+
+    # Convert alphas_bar_sqrt to betas
+    alphas_bar = alphas_bar_sqrt ** 2  # Revert sqrt
+    alphas_bar[-1] = 4.8973451890853435e-08
+    return alphas_bar
+
+
+def apply_alpha_schedule_override(sd_model, p=None):
+    """
+    Applies an override to the alpha schedule of the model according to settings.
+    - downcasts the alpha schedule to half precision
+    - rescales the alpha schedule to have zero terminal SNR
+    """
+
+    if not hasattr(sd_model, 'alphas_cumprod') or not hasattr(sd_model, 'alphas_cumprod_original'):
+        return
+
+    sd_model.alphas_cumprod = sd_model.alphas_cumprod_original.to(shared.device)
+
+    if opts.use_downcasted_alpha_bar:
+        if p is not None:
+            p.extra_generation_params['Downcast alphas_cumprod'] = opts.use_downcasted_alpha_bar
+        sd_model.alphas_cumprod = sd_model.alphas_cumprod.half().to(shared.device)
+
+    if opts.sd_noise_schedule == "Zero Terminal SNR":
+        if p is not None:
+            p.extra_generation_params['Noise Schedule'] = opts.sd_noise_schedule
+        sd_model.alphas_cumprod = rescale_zero_terminal_snr_abar(sd_model.alphas_cumprod).to(shared.device)
 
 
 sd1_clip_weight = 'cond_stage_model.transformer.text_model.embeddings.token_embedding.weight'
@@ -739,8 +783,15 @@ def reuse_model_from_already_loaded(sd_model, checkpoint_info, timer):
     If it is loaded, returns that (moving it to GPU if necessary, and moving the currently loadded model to CPU if necessary).
     If not, returns the model that can be used to load weights from checkpoint_info's file.
     If no such model exists, returns None.
-    Additionaly deletes loaded models that are over the limit set in settings (sd_checkpoints_limit).
+    Additionally deletes loaded models that are over the limit set in settings (sd_checkpoints_limit).
     """
+
+    if sd_model is not None and sd_model.sd_checkpoint_info.filename == checkpoint_info.filename:
+        return sd_model
+
+    if shared.opts.sd_checkpoints_keep_in_cpu:
+        send_model_to_cpu(sd_model)
+        timer.record("send model to cpu")
 
     already_loaded = None
     for i in reversed(range(len(model_data.loaded_sd_models))):
@@ -751,13 +802,9 @@ def reuse_model_from_already_loaded(sd_model, checkpoint_info, timer):
 
         if len(model_data.loaded_sd_models) > shared.opts.sd_checkpoints_limit > 0:
             print(f"Unloading model {len(model_data.loaded_sd_models)} over the limit of {shared.opts.sd_checkpoints_limit}: {loaded_model.sd_checkpoint_info.title}")
-            model_data.loaded_sd_models.pop()
+            del model_data.loaded_sd_models[i]
             send_model_to_trash(loaded_model)
             timer.record("send model to trash")
-
-        if shared.opts.sd_checkpoints_keep_in_cpu:
-            send_model_to_cpu(sd_model)
-            timer.record("send model to cpu")
 
     if already_loaded is not None:
         send_model_to_device(already_loaded)
